@@ -1,4 +1,3 @@
-#include <iostream>
 #include <signal.h>
 #include <unistd.h>
 #include <sys/wait.h>
@@ -7,7 +6,7 @@
 #include <sys/stat.h>
 #include <stdio.h>  
 #include <errno.h> 
-
+#include <iostream>
 
 // Observação: todos os prints adicionais, ou seja, que não foram explícitamente pedidos no
 // exercício foram comentados, descontando os de tratamento de erro
@@ -26,7 +25,7 @@ int criarFilho() {
     if (pid < 0) {
 
         // A função fork tem retorno negativo em caso de falhas
-         std::cout << "Falha ao criar o processo filhos" << " \n";
+        std::cout << "Falha ao criar o processo filhos" << " \n";
         exit(1); // Finaliza o programa com código 1
     }
     
@@ -42,11 +41,11 @@ void criarPipe(int descritorDePipe[]) {
     if(pipe(descritorDePipe) < 0) {
 
         // A função pipe tem retorno negativo em caso de falhas
-         std::cout << "Falha ao criar o pipe" << " \n";
+        std::cout << "Falha ao criar o pipe" << " \n";
         exit(1); // Finaliza o programa com código 1
     }
 
-    // std::cout << "Pipe criado." << " \n";
+    //printf("Pipe criado.")";
 }
 
 
@@ -96,7 +95,7 @@ void tarefaUm() {
     else {
 
         // Trechos de https://www.geeksforgeeks.org/time-function-in-c/
-        // std::cout << "lendo tempo.. " << " \n";
+        //printf("lendo tempo.. ")";
         
         time_t tempo;
         // Ler segundos
@@ -121,7 +120,7 @@ void tarefaUm() {
 
 void tarefaDois() {
 
-    // std::cout << "Comando para executar: " << comandoParaExecutar << " \n";
+    //printf("Comando para executar: " << comandoParaExecutar)n";
 
     // Cria processo filho
     int pid = criarFilho();
@@ -148,8 +147,8 @@ void tarefaDois() {
         else {
     
             // Caso o comando seja par
-            if (comandoParaExecutar % 2 == 3) {
-                // std::cout << "Par" << " \n";
+            if (comandoParaExecutar % 2 == 0) {
+                printf("Par");
 
                 // Rodar ping 8.8.8.8 -c 5
                 executarPing();
@@ -157,6 +156,7 @@ void tarefaDois() {
 
             // Caso o comando seja ímpar
             else {
+                printf("impar");
   
                 // Referência de dup2
                 // http://www.cs.loyola.edu/~jglenn/702/S2005/Examples/dup2.html
@@ -182,51 +182,47 @@ void tarefaDois() {
 // Fução que trata os sinais
 void tratarSinal(int sinal) {
 
+    // Selecionar ação baseada no sinal
     switch (sinal) {
 
         case SIGUSR1:
-            std::cout << "SIGUSR1" << " \n";
             tarefaUm();
             break;
 
         case SIGUSR2:
-            std::cout << "SIGUSR2" << " \n";
+            tarefaDois();
             break;
-        
+
         case SIGTERM:
-            std::cout << "Finalizando o disparador...”" << " \n";
+            std::cout << "Finalizando o disparador..." << " \n";
             exit(0); 
     }
 
 };
 
 
-int main()
+int main(void)
 {
     // Ler e imprimir o próprio PID
-    int pid = getppid();
-
-
-
-    std::cout << pid << " \n";
-    // std::cout << "Iniciando tratador de sinais.. " << " \n";
+    int pid = getpid();
+    std::cout << pid << "\n";
+    
+    // printf("Iniciando tratador de sinais.. ");
 
     // Registrar função de tratamento de sinais
     // Modificado de https://www.thegeekstuff.com/2012/03/catch-signals-sample-c-code/
     if (signal(SIGUSR1, tratarSinal) == SIG_ERR)
-        printf("Não foi possível capturar SIGUSR1\n");
+       printf("Não foi possível capturar SIGUSR1");
         
     if (signal(SIGUSR2, tratarSinal) == SIG_ERR)
-        printf("Não foi possível capturar SIGUSR2\n");
+       printf("Não foi possível capturar SIGUSR2");
         
     if (signal(SIGTERM, tratarSinal) == SIG_ERR)
-        printf("Não foi possível capturar SIGTERM\n");
+       printf("Não foi possível capturar SIGTERM");
 
-    // while (1) {
-    //     sleep(1);
-    // }
-    tarefaUm();
-    tarefaDois();
+    while (1) {
+        sleep(1);
+    }
 
     return 0;
 }
