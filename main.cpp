@@ -3,7 +3,15 @@
 #include <unistd.h>
 #include <sys/wait.h>
 #include <time.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <stdio.h>  
+#include <errno.h> 
 
+
+// Observação: todos os prints adicionais, ou seja, que não foram explícitamente pedidos no
+// exercício foram comentados, descontando os de tratamento de erro
+// caso a correção seja feita capturando a saída.
 
 // Variável do exercício
 long comandoParaExecutar = 0;
@@ -18,7 +26,7 @@ int criarFilho() {
     if (pid < 0) {
 
         // A função fork tem retorno negativo em caso de falhas
-        std::cout << "Falha ao criar o processo filhos" << " \n";
+         std::cout << "Falha ao criar o processo filhos" << " \n";
         exit(1); // Finaliza o programa com código 1
     }
     
@@ -27,18 +35,18 @@ int criarFilho() {
 
 
 // Realiza um fork e retorna o array de descritores 
-void criarFork(int descritorDePipe[]) {
+void criarPipe(int descritorDePipe[]) {
 
     // Trecho baseado no exemplo da aula 1 do conjunto 2 
     // Cria o pipe
     if(pipe(descritorDePipe) < 0) {
 
         // A função pipe tem retorno negativo em caso de falhas
-        std::cout << "Falha ao criar o pipe" << " \n";
+         std::cout << "Falha ao criar o pipe" << " \n";
         exit(1); // Finaliza o programa com código 1
     }
 
-    std::cout << "Pipe criado." << " \n";
+    // std::cout << "Pipe criado." << " \n";
 }
 
 
@@ -50,11 +58,23 @@ void fecharPipes(int* descritorDePipe) {
 }
 
 
+// Executar ping 8.8.8.8 -c 5
+void executarPing() {
+
+    // Referência de exec
+    // https://linuxhint.com/exec_linux_system_call_c/
+
+    char *programName = "ping";
+    char *args[] = {programName, "8.8.8.8", "-c", "5", NULL};
+
+    execvp(programName, args);
+}
+
 void tarefaUm() {
 
    // int* descritorDePipe;
     int descritorDePipe[2];
-    criarFork(descritorDePipe);
+    criarPipe(descritorDePipe);
 
     // Cria processo filho
     int pid = criarFilho();
@@ -76,17 +96,14 @@ void tarefaUm() {
     else {
 
         // Trechos de https://www.geeksforgeeks.org/time-function-in-c/
-        std::cout << "lendo tempo.. " << " \n";
+        // std::cout << "lendo tempo.. " << " \n";
         
         time_t tempo;
         // Ler segundos
         tempo = time(NULL);
 
-        std::cout << " .. " << " \n";
-
-
         // Imprime o tempo
-        std::cout << "Tempo: " << " \n";
+        // std::cout << "Tempo: " << " \n";
         std::cout << tempo << " \n";
 
         // Escreve no pipe
@@ -104,9 +121,7 @@ void tarefaUm() {
 
 void tarefaDois() {
 
-   // int* descritorDePipe;
-    int descritorDePipe[2];
-    criarFork(descritorDePipe);
+    // std::cout << "Comando para executar: " << comandoParaExecutar << " \n";
 
     // Cria processo filho
     int pid = criarFilho();
@@ -114,21 +129,54 @@ void tarefaDois() {
     // Código do processo pai
     if (pid > 0) {
 
-        // Envia o comando por pipe
-        write (descritorDePipe[1], &comandoParaExecutar, sizeof(comandoParaExecutar));
-        
         // Espera até que o processo filho retorne
         wait(NULL); 
     }
 
     // Código do processo filho
     else {
-        printf("Implementar");
+
+        // Caso o comando seja zero
+        if (comandoParaExecutar == 0) {
+            std::cout << "Não há comando a executar" << " \n";
+
+            // Pela definição do exercício, não tive certeza se o programa deveria finalizar
+            // sua execução, ou a voltar a ler entradas. Assumi a segunda opção.
+            return; 
+        }
+
+        else {
+    
+            // Caso o comando seja par
+            if (comandoParaExecutar % 2 == 3) {
+                // std::cout << "Par" << " \n";
+
+                // Rodar ping 8.8.8.8 -c 5
+                executarPing();
+            }
+
+            // Caso o comando seja ímpar
+            else {
+  
+                // Referência de dup2
+                // http://www.cs.loyola.edu/~jglenn/702/S2005/Examples/dup2.html
+                // Duplicar STDOUT e STDERR para o file descriptor do arquivo de log
+                int saida = open("saidaComando.log", O_WRONLY | O_TRUNC | O_CREAT, S_IRUSR | S_IRGRP | S_IWGRP | S_IWUSR);
+
+                // Redirecionar STDIN e STDERR para saidaComando.log
+                dup2(saida, STDOUT_FILENO);
+                dup2(saida, STDERR_FILENO);
+
+                // Rodar ping 8.8.8.8 -c 5
+                executarPing();
+
+            }
+        }
+
     }
 
 
 }
-
 
 
 // Fução que trata os sinais
@@ -136,18 +184,18 @@ void tratarSinal(int sinal) {
 
     switch (sinal) {
 
-    case SIGUSR1:
-        std::cout << "SIGUSR1" << " \n";
-        tarefaUm();
-        break;
+        case SIGUSR1:
+            std::cout << "SIGUSR1" << " \n";
+            tarefaUm();
+            break;
 
-    case SIGUSR2:
-        std::cout << "SIGUSR2" << " \n";
-        break;
-    
-    case SIGTERM:
-        std::cout << "Finalizando o disparador...”" << " \n";
-        exit(0); 
+        case SIGUSR2:
+            std::cout << "SIGUSR2" << " \n";
+            break;
+        
+        case SIGTERM:
+            std::cout << "Finalizando o disparador...”" << " \n";
+            exit(0); 
     }
 
 };
@@ -161,7 +209,7 @@ int main()
 
 
     std::cout << pid << " \n";
-    std::cout << "Iniciando tratador de sinais.. " << " \n";
+    // std::cout << "Iniciando tratador de sinais.. " << " \n";
 
     // Registrar função de tratamento de sinais
     // Modificado de https://www.thegeekstuff.com/2012/03/catch-signals-sample-c-code/
@@ -178,7 +226,7 @@ int main()
     //     sleep(1);
     // }
     tarefaUm();
+    tarefaDois();
 
     return 0;
 }
-
