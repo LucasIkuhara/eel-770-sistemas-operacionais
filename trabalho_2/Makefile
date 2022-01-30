@@ -7,7 +7,7 @@ TARGET = main
 all: $(TARGET)
 
 $(TARGET): $(TARGET).c
-	$(CC) -o $(TARGET) $(TARGET).c
+	$(CC)  -pthread -o $(TARGET).out $(TARGET).c
 
 clean:
 	$(RM) $(TARGET)

@@ -3,6 +3,14 @@
 #include <pthread.h>
 
 
+/*
+    O problema escolhido for: The unisex bathroom problem (Seção 6.2).
+    Os threads são criados de maneira que seus sexos são alternados. (Um mulher, um homem)
+    O programa foi desenvolvido e testado no sistema operacional Ubuntu 20.04 rodando no WSL2
+    A quantidade de threads utilizada pode ser definida pela macro abaixo:
+*/
+#define THREADS = 10
+
 // Variáveis de condição para o sexo oposto entrar no banheiro
 pthread_cond_t  semMulherCond = PTHREAD_COND_INITIALIZER;
 pthread_cond_t  semHomemCond = PTHREAD_COND_INITIALIZER;
@@ -83,7 +91,36 @@ void entrarNoBanheiroMulher() {
 };
 
 int main(void) {
+    
+    // Referências:
+    // https://stackoverflow.com/questions/4964142/how-to-spawn-n-threads
+    // https://www.geeksforgeeks.org/function-pointer-in-c/
+    // https://stackoverflow.com/questions/11624545/how-to-make-main-thread-wait-for-all-child-threads-finish
+    int threads = 5, i = 0;
+    void (*funcaoDoSexo);
 
+    printf("Iniciando a execução com %d threads.", threads);
+
+    // Alocação dinâmica de um espaço de memória para n-threads
+    pthread_t * thread = malloc(sizeof(pthread_t)*threads);
+
+    for (i = 0; i < threads; i++) {
+
+        // if (i % 2) {
+        funcaoDoSexo = &entrarNoBanheiroMulher;
+        // }
+        if(pthread_create(&thread[i], NULL, funcaoDoSexo, NULL)) {
+            printf ("Create pthread error!\n");
+            exit (1);
+        }
+    }
+
+    // Join de todos os threads
+    for (i = 0; i < threads; i++) {
+        pthread_join(thread[i], NULL);
+    }
+
+    printf("Finalizando a execução.");
 
     return 0;
 }
