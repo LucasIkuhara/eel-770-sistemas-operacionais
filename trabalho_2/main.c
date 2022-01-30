@@ -35,13 +35,21 @@ pthread_mutex_t semMulherLock = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t semHomemLock = PTHREAD_MUTEX_INITIALIZER;
 
 
-// Função usada para representar o uso do banheiro
-void usarBanheiro() {   
-    printf("Usando o banheiro.\n");
+// Funções usadas para representar o uso do banheiro
+void usarBanheiroMulher() {   
+    printf("[Mulher]: Usando o banheiro.\n");
     
     // Espera entre 0.5s e 2s 
     sleep(0.5 + ((float)rand()/(float)(RAND_MAX)) * 1.5);
 };
+
+void usarBanheiroHomem() {   
+    printf("[Homem]: Usando o banheiro.\n");
+    
+    // Espera entre 0.5s e 2s 
+    sleep(0.5 + ((float)rand()/(float)(RAND_MAX)) * 1.5);
+};
+
 
 // Função que representa entrar no banheiro para threads mulher
 void entrarNoBanheiroMulher() {
@@ -75,7 +83,7 @@ void entrarNoBanheiroMulher() {
         // um thread que já tenha acesso a zona crítica)
         pthread_mutex_unlock(&contadorLock);
 
-        usarBanheiro();
+        usarBanheiroMulher();
         
         // Decrementa o contador de pessoas no banheiro
         pthread_mutex_lock(&contadorLock);
@@ -137,7 +145,7 @@ void entrarNoBanheiroHomem() {
         // um thread que já tenha acesso a zona crítica)
         pthread_mutex_unlock(&contadorLock);
 
-        usarBanheiro();
+        usarBanheiroHomem();
         
         // Decrementa o contador de pessoas no banheiro
         pthread_mutex_lock(&contadorLock);
