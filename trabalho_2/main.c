@@ -9,7 +9,7 @@
     O programa foi desenvolvido e testado no sistema operacional Ubuntu 20.04 rodando no WSL2
     A quantidade de threads utilizada pode ser definida pela macro abaixo:
 */
-#define THREADS = 10
+#define THREADS 10
 
 // Variáveis de condição para o sexo oposto entrar no banheiro
 pthread_cond_t  semMulherCond = PTHREAD_COND_INITIALIZER;
@@ -39,6 +39,7 @@ void usarBanheiro() {
 
 // Função que representa entrar no banheiro para threads mulher
 void entrarNoBanheiroMulher() {
+    printf("Iniciando Thread mulher.\n");
 
     while (sexoDoUsuario != 0 || sexoDoUsuario != 2) {
     
@@ -96,10 +97,10 @@ int main(void) {
     // https://stackoverflow.com/questions/4964142/how-to-spawn-n-threads
     // https://www.geeksforgeeks.org/function-pointer-in-c/
     // https://stackoverflow.com/questions/11624545/how-to-make-main-thread-wait-for-all-child-threads-finish
-    int threads = 5, i = 0;
+    int threads = THREADS, i = 0;
     void (*funcaoDoSexo);
 
-    printf("Iniciando a execução com %d threads.", threads);
+    printf("Iniciando a execução com %d threads.\n", threads);
 
     // Alocação dinâmica de um espaço de memória para n-threads
     pthread_t * thread = malloc(sizeof(pthread_t)*threads);
@@ -120,7 +121,7 @@ int main(void) {
         pthread_join(thread[i], NULL);
     }
 
-    printf("Finalizando a execução.");
+    printf("Finalizando a execução.\n");
 
     return 0;
 }
