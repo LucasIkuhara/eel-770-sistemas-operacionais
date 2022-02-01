@@ -116,27 +116,31 @@ void entrarNoBanheiroMulher() {
 void entrarNoBanheiroHomem() {
     printf("[Homem]: Iniciando Thread homem.\n");
 
-    while (sexoDoUsuario != 1 && sexoDoUsuario != 2) {
+    // while (sexoDoUsuario != 1 && sexoDoUsuario != 2) {
 
-        printf("[Homem]: Esperando não terem mulheres no banheiro.\n");
-        // Espera até que nenhuma mulher esteja no banheiro
-        pthread_cond_wait(&semMulherCond, &semMulherLock);
-    }
+    //     printf("[Homem]: Esperando não terem mulheres no banheiro.\n");
+    //     // Espera até que nenhuma mulher esteja no banheiro
+    //     pthread_cond_wait(&semMulherCond, &semMulherLock);
+    // }
     
     // Ativa o lock semHomem, para que nenhuma mulher possa entrar e garante que a variável
     // reflete a presença de um homem no banheiro
-    pthread_mutex_lock(&semHomemLock);
+    //pthread_mutex_lock(&semHomemLock);
     sexoDoUsuario = 1;
+
+    // Travar o lock para proteger a variável de contador checada no while
+    pthread_mutex_lock(&contadorLock);
 
     // Threads esperam enquanto o banheiro está cheio (3 ou mais pessoas)
     while(qtdNoBanheiro >= 3) {
-
         printf("[Homem]: Esperando o banheiro não estar cheio.\n");
         pthread_cond_wait(&cheioCond, &contadorLock);
     }
-        // Incrementa o contador, tendo acesso exclusivo a variável contador
-        pthread_mutex_lock(&contadorLock);
-      
+        
+        // O lock não é liberado aqui, pois esperamos o contador ser aumentado, evitando desbloquear e
+        // bloquear o lock atoa.
+
+        // Incrementa o contador, tendo acesso exclusivo a variável contador      
         qtdNoBanheiro++;
         printf("[Homem]: Entrando no banheiro. Agora tem %d pessoas no banheiro.\n", qtdNoBanheiro);
 
@@ -192,10 +196,10 @@ int main(void) {
     for (i = 0; i < threads; i++) {
 
         // if (i % 2) {
-        funcaoDoSexo = &entrarNoBanheiroMulher;
+        funcaoDoSexo = &entrarNoBanheiroHomem;
         // }
         if(pthread_create(&thread[i], NULL, funcaoDoSexo, NULL)) {
-            printf ("Create pthread error!\n");
+            printf ("Falha ao criar thread.\n");
             exit (1);
         }
     }
