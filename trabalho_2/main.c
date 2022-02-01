@@ -53,28 +53,33 @@ void usarBanheiroHomem() {
 
 // Função que representa entrar no banheiro para threads mulher
 void entrarNoBanheiroMulher() {
-    printf("[Mulher]: Iniciando Thread mulher.\n");
+        printf("[Mulher]: Iniciando Thread Mulher.\n");
 
-    while (sexoDoUsuario != 0 && sexoDoUsuario != 2) {
+    // while (sexoDoUsuario != 1 && sexoDoUsuario != 2) {
 
-        printf("[Mulher]: Esperando não terem homens no banheiro.\n");
-        // Espera até que nenhum homem esteja no banheiro
-        pthread_cond_wait(&semHomemCond, &semHomemLock);
-    }
+    //     printf("[Mulher]: Esperando não terem homemes no banheiro.\n");
+    //     // Espera até que nenhuma homem esteja no banheiro
+    //     pthread_cond_wait(&semhomemCond, &semhomemLock);
+    // }
     
-    // Ativa o lock semMulher, para que nenhum homem possa entrar e garante que a variável
-    // reflete a presença de uma mulher no banheiro
-    pthread_mutex_lock(&semMulherLock);
-    sexoDoUsuario = 0;
+    // Ativa o lock semMulher, para que nenhuma homem possa entrar e garante que a variável
+    // reflete a presença de um Mulher no banheiro
+    //pthread_mutex_lock(&semMulherLock);
+    sexoDoUsuario = 1;
+
+    // Travar o lock para proteger a variável de contador checada no while
+    pthread_mutex_lock(&contadorLock);
 
     // Threads esperam enquanto o banheiro está cheio (3 ou mais pessoas)
     while(qtdNoBanheiro >= 3) {
         printf("[Mulher]: Esperando o banheiro não estar cheio.\n");
         pthread_cond_wait(&cheioCond, &contadorLock);
     }
-        // Incrementa o contador, tendo acesso exclusivo a variável contador
-        pthread_mutex_lock(&contadorLock);
-       
+        
+        // O lock não é liberado aqui, pois esperamos o contador ser aumentado, evitando desbloquear e
+        // bloquear o lock atoa.
+
+        // Incrementa o contador, tendo acesso exclusivo a variável contador      
         qtdNoBanheiro++;
         printf("[Mulher]: Entrando no banheiro. Agora tem %d pessoas no banheiro.\n", qtdNoBanheiro);
 
@@ -87,10 +92,10 @@ void entrarNoBanheiroMulher() {
         
         // Decrementa o contador de pessoas no banheiro
         pthread_mutex_lock(&contadorLock);
-        
+       
         qtdNoBanheiro--;
         printf("[Mulher]: Saindo do banheiro. Agora tem %d pessoas no banheiro.\n", qtdNoBanheiro);
-
+       
         pthread_mutex_unlock(&contadorLock);
 
         // Se ninguém estiver no banheiro, desabilitar travas de sexo, e muda o indicador de flag para 2 (vazio)
@@ -196,7 +201,7 @@ int main(void) {
     for (i = 0; i < threads; i++) {
 
         // if (i % 2) {
-        funcaoDoSexo = &entrarNoBanheiroHomem;
+        funcaoDoSexo = &entrarNoBanheiroMulher;
         // }
         if(pthread_create(&thread[i], NULL, funcaoDoSexo, NULL)) {
             printf ("Falha ao criar thread.\n");
