@@ -15,8 +15,7 @@
 #define THREADS 10
 
 // Variáveis de condição para o sexo oposto entrar no banheiro
-pthread_cond_t  semMulherCond = PTHREAD_COND_INITIALIZER;
-pthread_cond_t  semHomemCond = PTHREAD_COND_INITIALIZER;
+pthread_cond_t  sexoCond = PTHREAD_COND_INITIALIZER;
 
 // Variável de condição para banheiro cheio
 pthread_cond_t  cheioCond = PTHREAD_COND_INITIALIZER;
@@ -30,9 +29,8 @@ int sexoDoUsuario = 2;
 // Lock usada para restringir o acesso a variável contador
 pthread_mutex_t contadorLock = PTHREAD_MUTEX_INITIALIZER;
 
-// Locks que garantem que não existe ninguém do sexo oposto no banheiro
-pthread_mutex_t semMulherLock = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t semHomemLock = PTHREAD_MUTEX_INITIALIZER;
+// Lock que garante o uso exclusivo da variável sexoDoUsuario
+pthread_mutex_t sexoLock = PTHREAD_MUTEX_INITIALIZER;
 
 
 // Funções usadas para representar o uso do banheiro
@@ -50,29 +48,61 @@ void usarBanheiroHomem() {
     sleep(0.5 + ((float)rand()/(float)(RAND_MAX)) * 1.5);
 };
 
+// Basicamente um decorador da função printf para identificarmos o sexo de quem está falando
+void printComId(char *msg, int sexo) {
+    if (sexo == 0) {
+        printf("[Mulher]: ");
+    }
+    else {
+        printf("[Homem]: ");
+    }
 
-// Função que representa entrar no banheiro para threads mulher
-void entrarNoBanheiroMulher() {
-        printf("[Mulher]: Iniciando Thread Mulher.\n");
+    printf(msg);
+};
 
-    // while (sexoDoUsuario != 1 && sexoDoUsuario != 2) {
+void printComIdEArg(char *msg, int arg ,int sexo) {
+    if (sexo == 0) {
+        printf("[Mulher]: ");
+    }
+    else {
+        printf("[Homem]: ");
+    }
 
-    //     printf("[Mulher]: Esperando não terem homemes no banheiro.\n");
-    //     // Espera até que nenhuma homem esteja no banheiro
-    //     pthread_cond_wait(&semhomemCond, &semhomemLock);
-    // }
+    printf(msg, arg);
+};
+
+
+// Função que representa entrar na fila banheiro para threads
+// ou seja, esperar até que as condições do problema permitam sua entrada.
+void entrarNoFilaDoBanheiro(int sexo) {
+        
+    printComId("Iniciando Thread.\n", sexo);
+
+    // Garantir o uso exclusivo da variável de sexo do usuário
+    pthread_mutex_lock(&sexoLock);
+
+    while (sexoDoUsuario != sexo && sexoDoUsuario != 2) {
+
+        // Espera até que nenhuma pessoa do sexo oposto esteja no banheiro
+        printComId("Esperando não pessoas do sexo oposto no banheiro.\n", sexo);
+        pthread_cond_wait(&sexoCond, &sexoLock);
+        
+    }
     
-    // Ativa o lock semMulher, para que nenhuma homem possa entrar e garante que a variável
-    // reflete a presença de um Mulher no banheiro
-    //pthread_mutex_lock(&semMulherLock);
-    sexoDoUsuario = 1;
+    // Ativa o lock, para garantir que a variável
+    // reflete a presença de um Mulher no banheiro e que foi alterada de modo exclusivo
+    
+    sexoDoUsuario = sexo; 
+
+    // Libera o lock para desativar o uso exclusivo da variável sexoDoUsuario.
+    pthread_mutex_unlock(&sexoLock);
 
     // Travar o lock para proteger a variável de contador checada no while
     pthread_mutex_lock(&contadorLock);
 
     // Threads esperam enquanto o banheiro está cheio (3 ou mais pessoas)
     while(qtdNoBanheiro >= 3) {
-        printf("[Mulher]: Esperando o banheiro não estar cheio.\n");
+        printComId("Esperando o banheiro não estar cheio.\n", sexo);
         pthread_cond_wait(&cheioCond, &contadorLock);
     }
         
@@ -81,7 +111,7 @@ void entrarNoBanheiroMulher() {
 
         // Incrementa o contador, tendo acesso exclusivo a variável contador      
         qtdNoBanheiro++;
-        printf("[Mulher]: Entrando no banheiro. Agora tem %d pessoas no banheiro.\n", qtdNoBanheiro);
+        printComIdEArg("Entrando no banheiro. Agora tem %d pessoas no banheiro.\n", qtdNoBanheiro, sexo);
 
         // O mutex do contador é desbloqueado para que mais de uma pessoa consiga de fato
         // usar o banheiro por vez (Ou seja a função usarBanheiro pode ser chamada por mais de
@@ -94,18 +124,19 @@ void entrarNoBanheiroMulher() {
         pthread_mutex_lock(&contadorLock);
        
         qtdNoBanheiro--;
-        printf("[Mulher]: Saindo do banheiro. Agora tem %d pessoas no banheiro.\n", qtdNoBanheiro);
+        printComIdEArg("Saindo do banheiro. Agora tem %d pessoas no banheiro.\n", qtdNoBanheiro, sexo);
        
         pthread_mutex_unlock(&contadorLock);
 
-        // Se ninguém estiver no banheiro, desabilitar travas de sexo, e muda o indicador de flag para 2 (vazio)
+        // Se ninguém estiver no banheiro, muda o indicador de sexo para 2 (vazio)
     	if (qtdNoBanheiro == 0) {
-            pthread_mutex_unlock(&semMulherLock);
+            pthread_mutex_lock(&sexoLock);
             sexoDoUsuario = 2;
+            pthread_mutex_unlock(&sexoLock);
         }
 
         // Signal é chamado para acordar um thread esperando que o último membro do sexo oposto deixe o banheiro
-        pthread_cond_signal(&semMulherCond);
+        pthread_cond_signal(&sexoCond);
 
         // Signal é chamado para acordar um thread esperando vaga no banheiro
         pthread_cond_signal(&cheioCond);
@@ -113,71 +144,6 @@ void entrarNoBanheiroMulher() {
         // Ao chamarmos o signal do lock de sexo antes do de quantidade, criamos uma ideia de revezamento entre
         // os sexos, visando evitar starvation
 
-        // Thread finaliza
-        pthread_exit(NULL);
-};
-
-// Função que representa entrar no banheiro para threads homem
-void entrarNoBanheiroHomem() {
-    printf("[Homem]: Iniciando Thread homem.\n");
-
-    // while (sexoDoUsuario != 1 && sexoDoUsuario != 2) {
-
-    //     printf("[Homem]: Esperando não terem mulheres no banheiro.\n");
-    //     // Espera até que nenhuma mulher esteja no banheiro
-    //     pthread_cond_wait(&semMulherCond, &semMulherLock);
-    // }
-    
-    // Ativa o lock semHomem, para que nenhuma mulher possa entrar e garante que a variável
-    // reflete a presença de um homem no banheiro
-    //pthread_mutex_lock(&semHomemLock);
-    sexoDoUsuario = 1;
-
-    // Travar o lock para proteger a variável de contador checada no while
-    pthread_mutex_lock(&contadorLock);
-
-    // Threads esperam enquanto o banheiro está cheio (3 ou mais pessoas)
-    while(qtdNoBanheiro >= 3) {
-        printf("[Homem]: Esperando o banheiro não estar cheio.\n");
-        pthread_cond_wait(&cheioCond, &contadorLock);
-    }
-        
-        // O lock não é liberado aqui, pois esperamos o contador ser aumentado, evitando desbloquear e
-        // bloquear o lock atoa.
-
-        // Incrementa o contador, tendo acesso exclusivo a variável contador      
-        qtdNoBanheiro++;
-        printf("[Homem]: Entrando no banheiro. Agora tem %d pessoas no banheiro.\n", qtdNoBanheiro);
-
-        // O mutex do contador é desbloqueado para que mais de uma pessoa consiga de fato
-        // usar o banheiro por vez (Ou seja a função usarBanheiro pode ser chamada por mais de
-        // um thread que já tenha acesso a zona crítica)
-        pthread_mutex_unlock(&contadorLock);
-
-        usarBanheiroHomem();
-        
-        // Decrementa o contador de pessoas no banheiro
-        pthread_mutex_lock(&contadorLock);
-       
-        qtdNoBanheiro--;
-        printf("[Homem]: Saindo do banheiro. Agora tem %d pessoas no banheiro.\n", qtdNoBanheiro);
-       
-        pthread_mutex_unlock(&contadorLock);
-
-        // Se ninguém estiver no banheiro, desabilitar travas de sexo, e muda o indicador de flag para 2 (vazio)
-    	if (qtdNoBanheiro == 0) {
-            pthread_mutex_unlock(&semHomemLock);
-            sexoDoUsuario = 2;
-        }
-
-        // Signal é chamado para acordar um thread esperando que o último membro do sexo oposto deixe o banheiro
-        pthread_cond_signal(&semHomemCond);
-
-        // Signal é chamado para acordar um thread esperando vaga no banheiro
-        pthread_cond_signal(&cheioCond);
-
-        // Ao chamarmos o signal do lock de sexo antes do de quantidade, criamos uma ideia de revezamento entre
-        // os sexos, visando evitar starvation
 
         // Thread finaliza
         pthread_exit(NULL);
@@ -190,6 +156,7 @@ int main(void) {
     // https://stackoverflow.com/questions/4964142/how-to-spawn-n-threads
     // https://www.geeksforgeeks.org/function-pointer-in-c/
     // https://stackoverflow.com/questions/11624545/how-to-make-main-thread-wait-for-all-child-threads-finish
+    // http://www.cse.cuhk.edu.hk/~ericlo/teaching/os/lab/9-PThread/Pass.html
     int threads = THREADS, i = 0;
     void (*funcaoDoSexo);
 
@@ -198,12 +165,16 @@ int main(void) {
     // Alocação dinâmica de um espaço de memória para n-threads
     pthread_t * thread = malloc(sizeof(pthread_t)*threads);
 
+    // Define o sexo do thread criado
+    int sexoDoThread;
+
     for (i = 0; i < threads; i++) {
 
-        // if (i % 2) {
-        funcaoDoSexo = &entrarNoBanheiroMulher;
-        // }
-        if(pthread_create(&thread[i], NULL, funcaoDoSexo, NULL)) {
+        // Define o sexo pela operação módulo 2 com o contador de iteração como argumento
+        sexoDoThread = i % 2;
+        
+        // Cria os threads
+        if(pthread_create(&thread[i], NULL, &entrarNoFilaDoBanheiro, sexoDoThread)) {
             printf ("Falha ao criar thread.\n");
             exit (1);
         }
