@@ -4,15 +4,20 @@
 #include <unistd.h>
 
 
-
 /*
     O problema escolhido for: The unisex bathroom problem (Seção 6.2).
     Os threads são criados de maneira que seus sexos são alternados. (Um mulher, um homem)
     O programa foi desenvolvido e testado no sistema operacional Ubuntu 20.04 rodando no WSL2
-    A função de usar o banheiro imprime uma frase e espera um tempo entre 0.5 e 2 segundos.
+    A função de usar o banheiro imprime uma frase (e, caso a macro ESPERAR esteja definida como
+    1, espera um tempo entre 0.5 e 2 segundos. Como isso não era um requisito do exercício, deixei desligado,
+    mas facilitou muito a deputação de problemas de concorrência).
+    A macro DEBUG com o valor 1 habilita prints adicionais, também usados para depuração. Foram deixados ligados,
+    pois, mesmo não sendo requisito do exercício, é bem mais fácil entender o funcionamento com eles.
     A quantidade de threads utilizada pode ser definida pela macro abaixo:
 */
 #define THREADS 10
+#define ESPERAR 0
+#define DEBUG 1
 
 // Variáveis de condição para o sexo oposto entrar no banheiro
 pthread_cond_t  sexoCond = PTHREAD_COND_INITIALIZER;
@@ -32,43 +37,76 @@ pthread_mutex_t contadorLock = PTHREAD_MUTEX_INITIALIZER;
 // Lock que garante o uso exclusivo da variável sexoDoUsuario
 pthread_mutex_t sexoLock = PTHREAD_MUTEX_INITIALIZER;
 
+// Lock que garante que os prints não saiam embaralhados.
+// Não faz parte da lógica do problema em si.
+pthread_mutex_t printLock = PTHREAD_MUTEX_INITIALIZER;
 
-// Funções usadas para representar o uso do banheiro
-void usarBanheiroMulher() {   
-    printf("[Mulher]: Usando o banheiro.\n");
+
+
+// Função usada para representar o uso do banheiro
+void usarBanheiro(int sexo) {
+    
+    // O lock é para garantir que o textos dos prints não saia embaralhado
+    pthread_mutex_lock(&printLock);
+
+    if (sexo == 0) {
+        printf("[Mulher]: ");
+    }
+    else {
+        printf("[Homem]: ");
+    }
+    printf("Usando o banheiro.\n");
+
+    pthread_mutex_unlock(&printLock);
+
     
     // Espera entre 0.5s e 2s 
-    sleep(0.5 + ((float)rand()/(float)(RAND_MAX)) * 1.5);
-};
-
-void usarBanheiroHomem() {   
-    printf("[Homem]: Usando o banheiro.\n");
-    
-    // Espera entre 0.5s e 2s 
-    sleep(0.5 + ((float)rand()/(float)(RAND_MAX)) * 1.5);
+    if(ESPERAR==1) {
+        sleep(0.5 + ((float)rand()/(float)(RAND_MAX)) * 1.5);
+    }
 };
 
 // Basicamente um decorador da função printf para identificarmos o sexo de quem está falando
 void printComId(char *msg, int sexo) {
-    if (sexo == 0) {
-        printf("[Mulher]: ");
-    }
-    else {
-        printf("[Homem]: ");
+
+    pthread_mutex_lock(&printLock);
+
+    // Só usado para prints opcionais
+    if(DEBUG==1) {
+
+        if (sexo == 0) {
+            printf("[Mulher]: ");
+        }
+        else {
+            printf("[Homem]: ");
+        }
+
+        printf(msg);
     }
 
-    printf(msg);
+    pthread_mutex_unlock(&printLock);
+
 };
 
 void printComIdEArg(char *msg, int arg ,int sexo) {
-    if (sexo == 0) {
-        printf("[Mulher]: ");
-    }
-    else {
-        printf("[Homem]: ");
+
+    pthread_mutex_lock(&printLock);
+
+    // Só usado para prints opcionais
+    if(DEBUG==1) {
+
+        if (sexo == 0) {
+            printf("[Mulher]: ");
+        }
+        else {
+            printf("[Homem]: ");
+        }
+
+        printf(msg, arg);
     }
 
-    printf(msg, arg);
+    pthread_mutex_unlock(&printLock);
+
 };
 
 
@@ -118,7 +156,8 @@ void entrarNoFilaDoBanheiro(int sexo) {
         // um thread que já tenha acesso a zona crítica)
         pthread_mutex_unlock(&contadorLock);
 
-        usarBanheiroMulher();
+        // Função que representa o uso do banheiro
+        usarBanheiro(sexo);
         
         // Decrementa o contador de pessoas no banheiro
         pthread_mutex_lock(&contadorLock);
@@ -140,10 +179,6 @@ void entrarNoFilaDoBanheiro(int sexo) {
 
         // Signal é chamado para acordar um thread esperando vaga no banheiro
         pthread_cond_signal(&cheioCond);
-
-        // Ao chamarmos o signal do lock de sexo antes do de quantidade, criamos uma ideia de revezamento entre
-        // os sexos, visando evitar starvation
-
 
         // Thread finaliza
         pthread_exit(NULL);
